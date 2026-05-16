@@ -2,13 +2,19 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 )
 
 func run(args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("please include a command")
+		return usageErr("please include a command")
+	}
+
+	if isHelpCommand(args[0]) {
+		PrintUsage(os.Stdout)
+		return nil
 	}
 
 	tasks, err := LoadTasks()
@@ -19,7 +25,7 @@ func run(args []string) error {
 	switch cmd := args[0]; cmd {
 	case "add":
 		if len(args) < 2 {
-			return fmt.Errorf("description not included")
+			return usageErr("description not included")
 		}
 
 		description := strings.Join(args[1:], " ")
@@ -31,7 +37,7 @@ func run(args []string) error {
 
 	case "update":
 		if len(args) < 3 {
-			return fmt.Errorf("provide id and description to update task")
+			return usageErr("provide id and description to update task")
 		}
 
 		taskID, err := parseTaskID(args[1])
@@ -48,7 +54,7 @@ func run(args []string) error {
 
 	case "delete":
 		if len(args) < 2 {
-			return fmt.Errorf("please include ID")
+			return usageErr("please include ID")
 		}
 
 		id, err := parseTaskID(args[1])
@@ -67,7 +73,7 @@ func run(args []string) error {
 
 	case "mark-in-progress":
 		if len(args) < 2 {
-			return fmt.Errorf("please include ID")
+			return usageErr("please include ID")
 		}
 		id, err := parseTaskID(args[1])
 		if err != nil {
@@ -82,7 +88,7 @@ func run(args []string) error {
 
 	case "mark-done":
 		if len(args) < 2 {
-			return fmt.Errorf("please include ID")
+			return usageErr("please include ID")
 		}
 		id, err := parseTaskID(args[1])
 		if err != nil {
@@ -107,7 +113,7 @@ func run(args []string) error {
 		}
 
 	default:
-		return fmt.Errorf("unknown command: %s", cmd)
+		return usageErr("unknown command: %s", cmd)
 	}
 
 	return nil
@@ -116,7 +122,7 @@ func run(args []string) error {
 func parseTaskID(value string) (int, error) {
 	id, err := strconv.Atoi(value)
 	if err != nil {
-		return 0, fmt.Errorf("invalid task ID %q: %w", value, err)
+		return 0, usageErr("invalid task ID %q: %w", value, err)
 	}
 
 	return id, nil

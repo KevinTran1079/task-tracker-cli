@@ -9,7 +9,7 @@ func ListTasks(tasks []Task, status string) error {
 	case statusTodo, statusInProgress, statusDone:
 		ListTasksByStatus(tasks, status)
 	default:
-		return fmt.Errorf("unknown list status: %s", status)
+		return usageErr("unknown list status: %s", status)
 	}
 
 	return nil
