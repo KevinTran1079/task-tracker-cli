@@ -181,4 +181,11 @@ func DeleteTask(id int, tasks []Task) ([]Task, error) {
 	return tasks, fmt.Errorf("Task with ID: %d not found", id)
 }
 
+func UpdateStatus(id int, status string, tasks []Task) error {
+	for _, task := range tasks {
+		if task.ID == id:
+
+	}
+}
+
 
