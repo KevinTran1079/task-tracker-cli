@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -44,7 +45,27 @@ func main() {
 			os.Exit(1)
 		}
 	case "update":
-		fmt.Println(cmd)
+		if len(args[1:]) < 2 {
+			fmt.Println("Provide id and description to update task")
+			os.Exit(1)
+		}
+
+		taskID, err := strconv.Atoi(args[1])
+		if err != nil {
+			fmt.Println("Unable to convert task ID to integer")
+			os.Exit(1)
+		}
+		description := args[2]
+		tasks, err = UpdateTask(taskID, description, tasks)
+		if err != nil {
+			fmt.Println("Unable to update tasks")
+			os.Exit(1)
+		}
+		if err := WriteFile(tasks); err != nil {
+			fmt.Println("Unable to write updated tasks to tasks.json")
+			os.Exit(1)
+		}
+
 	case "delete":
 		fmt.Println(cmd)
 	case "mark-in-progress":
@@ -92,6 +113,17 @@ func AddTasks(description string, tasks []Task) []Task {
 	}
 
 	return append(tasks, task)
+}
+
+func UpdateTask(id int, description string, tasks []Task) ([]Task, error) {
+	for i := 0; i < len(tasks); i++ {
+		if tasks[i].ID == id {
+			tasks[i].Description = description
+			tasks[i].UpdatedAt = time.Now()
+			return tasks, nil
+		}
+	}
+	return nil, fmt.Errorf("Task with ID %d not found", id)
 }
 
 func WriteFile(tasks []Task) error {
