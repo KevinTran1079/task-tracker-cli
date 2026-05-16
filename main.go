@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"slices"
 	"strconv"
 	"time"
 )
@@ -58,7 +59,7 @@ func main() {
 		description := args[2]
 		tasks, err = UpdateTask(taskID, description, tasks)
 		if err != nil {
-			fmt.Println("Unable to update tasks")
+			fmt.Println(err)
 			os.Exit(1)
 		}
 		if err := WriteFile(tasks); err != nil {
@@ -67,7 +68,23 @@ func main() {
 		}
 
 	case "delete":
-		fmt.Println(cmd)
+		if len(args) < 2 {
+			fmt.Println("Please include ID")
+		}
+
+		id, err := strconv.Atoi(args[1])
+		if err != nil {
+			fmt.Println("Unable to convert string to int")
+		}
+
+		tasks, err = DeleteTask(id, tasks)
+		if err != nil {
+			os.Exit(1)
+		}
+
+		if err := WriteFile(tasks); err != nil {
+			os.Exit(1)
+		}
 	case "mark-in-progress":
 		fmt.Println(cmd)
 	case "mark-done":
@@ -102,7 +119,10 @@ func LoadTasks() ([]Task, error) {
 
 func AddTasks(description string, tasks []Task) []Task {
 	now := time.Now()
-	lastID := tasks[len(tasks)-1].ID
+	lastID := 0
+	if len(tasks) != 0 {
+		lastID = tasks[len(tasks)-1].ID
+	}
 
 	task := Task{
 		ID:          lastID + 1,
@@ -133,4 +153,15 @@ func WriteFile(tasks []Task) error {
 	}
 
 	return os.WriteFile("tasks.json", data, 0644)
+}
+
+func DeleteTask(id int, tasks []Task) ([]Task, error) {
+	for i := 0; i < len(tasks); i++ {
+		if tasks[i].ID == id {
+			tasks = slices.Delete(tasks, i, i+1)
+			return tasks, nil
+		}
+	}
+
+	return tasks, fmt.Errorf("Task with ID: %d not found", id)
 }
