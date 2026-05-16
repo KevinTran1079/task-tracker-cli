@@ -121,7 +121,14 @@ func run(args []string) error {
 			return fmt.Errorf("unable to write tasks: %w", err)
 		}
 	case "list":
-		ListAllTasks(tasks)
+		status := "all"
+		if len(args) > 1 {
+			status = args[1]
+		}
+
+		if err := ListTasks(tasks, status); err != nil {
+			return err
+		}
 	default:
 		return fmt.Errorf("unknown command: %s", cmd)
 
@@ -130,15 +137,40 @@ func run(args []string) error {
 	return nil
 }
 
+func ListTasks(tasks []Task, status string) error {
+	switch status {
+	case "all":
+		ListAllTasks(tasks)
+	case statusTodo, statusInProgress, statusDone:
+		ListTasksByStatus(tasks, status)
+	default:
+		return fmt.Errorf("unknown list status: %s", status)
+	}
+
+	return nil
+}
+
 func ListAllTasks(tasks []Task) {
 	for _, task := range tasks {
-		fmt.Printf("id: %d\ndescription: %s\nstatus: %s\ncreatedat: %s\nupdatedat: %s\n\n",
-			task.ID,
-			task.Description,
-			task.Status,
-			task.CreatedAt,
-			task.UpdatedAt)
+		PrintTask(task)
 	}
+}
+
+func ListTasksByStatus(tasks []Task, status string) {
+	for _, task := range tasks {
+		if task.Status == status {
+			PrintTask(task)
+		}
+	}
+}
+
+func PrintTask(task Task) {
+	fmt.Printf("id: %d\ndescription: %s\nstatus: %s\ncreatedat: %s\nupdatedat: %s\n\n",
+		task.ID,
+		task.Description,
+		task.Status,
+		task.CreatedAt,
+		task.UpdatedAt)
 }
 
 func LoadTasks() ([]Task, error) {
