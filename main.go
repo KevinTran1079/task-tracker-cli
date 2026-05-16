@@ -18,33 +18,36 @@ type Task struct {
 }
 
 func main() {
-	args := os.Args[1:]
+	if err := run(os.Args[1:]); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+}
+
+func run(args []string) error {
 
 	if len(args) < 1 {
-		fmt.Println("No command provided")
-		os.Exit(1)
+		return fmt.Errorf("Please include arguments")
 	}
 
 	tasks, err := LoadTasks()
 	if err != nil {
-		fmt.Println("Unable to load task")
-		os.Exit(1)
+		return fmt.Errorf("Unable to load tasks: %w", err)
 	}
 
 	switch cmd := args[0]; cmd {
 	case "add":
 		if len(args) < 2 {
-			fmt.Println("Missing description of the task")
-			os.Exit(1)
+			return fmt.Errorf("Description not included")
 		}
 
 		description := args[1]
 		tasks = AddTasks(description, tasks)
 
 		if err := WriteFile(tasks); err != nil {
-			fmt.Println("unable to write file:", err)
-			os.Exit(1)
+			return fmt.Errorf("Unable to write to file: %w", err)
 		}
+
 	case "update":
 		if len(args[1:]) < 2 {
 			fmt.Println("Provide id and description to update task")
@@ -90,14 +93,26 @@ func main() {
 	case "mark-done":
 		fmt.Println(cmd)
 	case "list":
-		fmt.Println(cmd)
+		ListAllTasks(tasks)
 	default:
-		fmt.Println("Unknown command:", cmd)
-		os.Exit(1)
+		return fmt.Errorf("Unknown command")
 
 	}
 
-	os.Exit(0)
+	return nil
+}
+
+func ListAllTasks(tasks []Task) {
+		if len(tasks) > 0 {
+		for _, task := range tasks {
+			fmt.Printf("id: %d\ndescription: %s\nstatus: %s\ncreatedat: %s\nupdatedat: %s\n\n",
+					task.ID,
+					task.Description,
+					task.Status,
+					task.CreatedAt,
+					task.UpdatedAt)
+		}
+	}
 }
 
 func LoadTasks() ([]Task, error) {
@@ -165,3 +180,5 @@ func DeleteTask(id int, tasks []Task) ([]Task, error) {
 
 	return tasks, fmt.Errorf("Task with ID: %d not found", id)
 }
+
+
