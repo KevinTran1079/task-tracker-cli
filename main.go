@@ -6,15 +6,23 @@ import (
 	"os"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 )
 
+const (
+	tasksFile        = "tasks.json"
+	statusTodo       = "todo"
+	statusInProgress = "in-progress"
+	statusDone       = "done"
+)
+
 type Task struct {
-	ID          int
-	Description string
-	Status      string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID          int       `json:"id"`
+	Description string    `json:"description"`
+	Status      string    `json:"status"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 func main() {
@@ -27,75 +35,95 @@ func main() {
 func run(args []string) error {
 
 	if len(args) < 1 {
-		return fmt.Errorf("Please include arguments")
+		return fmt.Errorf("please include a command")
 	}
 
 	tasks, err := LoadTasks()
 	if err != nil {
-		return fmt.Errorf("Unable to load tasks: %w", err)
+		return fmt.Errorf("unable to load tasks: %w", err)
 	}
 
 	switch cmd := args[0]; cmd {
 	case "add":
 		if len(args) < 2 {
-			return fmt.Errorf("Description not included")
+			return fmt.Errorf("description not included")
 		}
 
-		description := args[1]
-		tasks = AddTasks(description, tasks)
+		description := strings.Join(args[1:], " ")
+		tasks = AddTask(description, tasks)
 
-		if err := WriteFile(tasks); err != nil {
-			return fmt.Errorf("Unable to write to file: %w", err)
+		if err := WriteTasks(tasks); err != nil {
+			return fmt.Errorf("unable to write tasks: %w", err)
 		}
 
 	case "update":
-		if len(args[1:]) < 2 {
-			fmt.Println("Provide id and description to update task")
-			os.Exit(1)
+		if len(args) < 3 {
+			return fmt.Errorf("provide id and description to update task")
 		}
 
-		taskID, err := strconv.Atoi(args[1])
+		taskID, err := parseTaskID(args[1])
 		if err != nil {
-			fmt.Println("Unable to convert task ID to integer")
-			os.Exit(1)
+			return err
 		}
-		description := args[2]
-		tasks, err = UpdateTask(taskID, description, tasks)
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+		description := strings.Join(args[2:], " ")
+		if err := UpdateTask(taskID, description, tasks); err != nil {
+			return err
 		}
-		if err := WriteFile(tasks); err != nil {
-			fmt.Println("Unable to write updated tasks to tasks.json")
-			os.Exit(1)
+		if err := WriteTasks(tasks); err != nil {
+			return fmt.Errorf("unable to write updated tasks: %w", err)
 		}
 
 	case "delete":
 		if len(args) < 2 {
-			fmt.Println("Please include ID")
+			return fmt.Errorf("please include ID")
 		}
 
-		id, err := strconv.Atoi(args[1])
+		id, err := parseTaskID(args[1])
 		if err != nil {
-			fmt.Println("Unable to convert string to int")
+			return err
 		}
 
 		tasks, err = DeleteTask(id, tasks)
 		if err != nil {
-			os.Exit(1)
+			return err
 		}
 
-		if err := WriteFile(tasks); err != nil {
-			os.Exit(1)
+		if err := WriteTasks(tasks); err != nil {
+			return fmt.Errorf("unable to write tasks: %w", err)
 		}
 	case "mark-in-progress":
-		fmt.Println(cmd)
+		if len(args) < 2 {
+			return fmt.Errorf("please include ID")
+		}
+		id, err := parseTaskID(args[1])
+		if err != nil {
+			return err
+		}
+		if err := UpdateStatus(id, statusInProgress, tasks); err != nil {
+			return err
+		}
+		if err := WriteTasks(tasks); err != nil {
+			return fmt.Errorf("unable to write tasks: %w", err)
+		}
 	case "mark-done":
-		fmt.Println(cmd)
+		if len(args) < 2 {
+			return fmt.Errorf("please include ID")
+		}
+		id, err := parseTaskID(args[1])
+		if err != nil {
+			return err
+		}
+		if err := UpdateStatus(id, statusDone, tasks); err != nil {
+			return err
+		}
+
+		if err := WriteTasks(tasks); err != nil {
+			return fmt.Errorf("unable to write tasks: %w", err)
+		}
 	case "list":
 		ListAllTasks(tasks)
 	default:
-		return fmt.Errorf("Unknown command")
+		return fmt.Errorf("unknown command: %s", cmd)
 
 	}
 
@@ -103,20 +131,18 @@ func run(args []string) error {
 }
 
 func ListAllTasks(tasks []Task) {
-		if len(tasks) > 0 {
-		for _, task := range tasks {
-			fmt.Printf("id: %d\ndescription: %s\nstatus: %s\ncreatedat: %s\nupdatedat: %s\n\n",
-					task.ID,
-					task.Description,
-					task.Status,
-					task.CreatedAt,
-					task.UpdatedAt)
-		}
+	for _, task := range tasks {
+		fmt.Printf("id: %d\ndescription: %s\nstatus: %s\ncreatedat: %s\nupdatedat: %s\n\n",
+			task.ID,
+			task.Description,
+			task.Status,
+			task.CreatedAt,
+			task.UpdatedAt)
 	}
 }
 
 func LoadTasks() ([]Task, error) {
-	data, err := os.ReadFile("tasks.json")
+	data, err := os.ReadFile(tasksFile)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return []Task{}, nil
@@ -132,7 +158,7 @@ func LoadTasks() ([]Task, error) {
 	return tasks, nil
 }
 
-func AddTasks(description string, tasks []Task) []Task {
+func AddTask(description string, tasks []Task) []Task {
 	now := time.Now()
 	lastID := 0
 	if len(tasks) != 0 {
@@ -142,7 +168,7 @@ func AddTasks(description string, tasks []Task) []Task {
 	task := Task{
 		ID:          lastID + 1,
 		Description: description,
-		Status:      "in-progress",
+		Status:      statusTodo,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
@@ -150,24 +176,24 @@ func AddTasks(description string, tasks []Task) []Task {
 	return append(tasks, task)
 }
 
-func UpdateTask(id int, description string, tasks []Task) ([]Task, error) {
-	for i := 0; i < len(tasks); i++ {
+func UpdateTask(id int, description string, tasks []Task) error {
+	for i := range tasks {
 		if tasks[i].ID == id {
 			tasks[i].Description = description
 			tasks[i].UpdatedAt = time.Now()
-			return tasks, nil
+			return nil
 		}
 	}
-	return nil, fmt.Errorf("Task with ID %d not found", id)
+	return fmt.Errorf("task with ID %d not found", id)
 }
 
-func WriteFile(tasks []Task) error {
+func WriteTasks(tasks []Task) error {
 	data, err := json.MarshalIndent(tasks, "", "\t")
 	if err != nil {
 		return err
 	}
 
-	return os.WriteFile("tasks.json", data, 0644)
+	return os.WriteFile(tasksFile, data, 0644)
 }
 
 func DeleteTask(id int, tasks []Task) ([]Task, error) {
@@ -178,14 +204,26 @@ func DeleteTask(id int, tasks []Task) ([]Task, error) {
 		}
 	}
 
-	return tasks, fmt.Errorf("Task with ID: %d not found", id)
+	return tasks, fmt.Errorf("task with ID %d not found", id)
 }
 
 func UpdateStatus(id int, status string, tasks []Task) error {
-	for _, task := range tasks {
-		if task.ID == id:
-
+	for i := range tasks {
+		if tasks[i].ID == id {
+			tasks[i].Status = status
+			tasks[i].UpdatedAt = time.Now()
+			return nil
+		}
 	}
+
+	return fmt.Errorf("task with ID %d not found", id)
 }
 
+func parseTaskID(value string) (int, error) {
+	id, err := strconv.Atoi(value)
+	if err != nil {
+		return 0, fmt.Errorf("invalid task ID %q: %w", value, err)
+	}
 
+	return id, nil
+}
