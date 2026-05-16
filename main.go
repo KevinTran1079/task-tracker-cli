@@ -23,7 +23,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	taskList, err := LoadTasks()
+	tasks, err := LoadTasks()
 	if err != nil {
 		fmt.Println("Unable to load task")
 		os.Exit(1)
@@ -37,7 +37,12 @@ func main() {
 		}
 
 		description := args[1]
-		AddTasks(description, taskList)
+		tasks = AddTasks(description, tasks)
+
+		if err := WriteFile(tasks); err != nil {
+			fmt.Println("unable to write file:", err)
+			os.Exit(1)
+		}
 	case "update":
 		fmt.Println(cmd)
 	case "delete":
@@ -74,24 +79,26 @@ func LoadTasks() ([]Task, error) {
 	return tasks, nil
 }
 
-func AddTasks(description string, taskList []Task) {
+func AddTasks(description string, tasks []Task) []Task {
+	now := time.Now()
+	lastID := tasks[len(tasks)-1].ID
+
 	task := Task{
-		ID:          len(taskList) + 1,
+		ID:          lastID + 1,
 		Description: description,
 		Status:      "in-progress",
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
+		CreatedAt:   now,
+		UpdatedAt:   now,
 	}
 
-	fmt.Println(task)
-	taskList = append(taskList, task)
-	WriteFile(taskList)
-
+	return append(tasks, task)
 }
 
-func WriteFile(taskList []Task) {
-	f, _ := os.Create("tasks.json")
-	defer f.Close()
-	as_json, _ := json.MarshalIndent(taskList, "", "\t")
-	f.Write(as_json)
+func WriteFile(tasks []Task) error {
+	data, err := json.MarshalIndent(tasks, "", "\t")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile("tasks.json", data, 0644)
 }
